@@ -74,9 +74,9 @@ Bitcoin uses a higher threshold because 20% swings are common noise in cryptocur
 
 | Asset | Bull Days | Bear Days | Bull % |
 |-------|-----------|-----------|--------|
-| S&P 500 | 2,475 | 289 | 89.5% |
-| Bitcoin | 2,085 | 580 | 78.2% |
-| Gold | 2,489 | 275 | 90.1% |
+| S&P 500 | 2,729 | 289 | 90.5% |
+| Bitcoin | 3,152 | 972 | 76.4% |
+| Gold | 2,742 | 275 | 90.1% |
 
 ---
 
