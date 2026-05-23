@@ -1,0 +1,11 @@
+Tillgång,Modell,Acc,F1,AUC,Bear Recall,Typ
+S&P 500,HMM RAW-2,0.84,0.845,nan,0.737,Statistisk
+S&P 500,HMM RAW-3,0.798,0.751,nan,0.192,Statistisk
+S&P 500,HMM ENG-2,0.832,0.841,nan,0.836,Statistisk
+S&P 500,HMM ENG-3,0.774,0.723,nan,0.144,Statistisk
+S&P 500,LSTM,0.867,0.866,0.842,0.679,Deep Learning
+Bitcoin,HMM RAW-2,0.381,0.429,nan,0.407,Statistisk
+Bitcoin,HMM RAW-3,0.643,0.624,nan,0.055,Statistisk
+Bitcoin,HMM ENG-2,0.447,0.476,nan,0.760,Statistisk
+Bitcoin,HMM ENG-3,0.662,0.669,nan,0.287,Statistisk
+Bitcoin,LSTM,0.951,0.945,0.797,0.596,Deep Learning

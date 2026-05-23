@@ -1,0 +1,13 @@
+Tillgång,Modell,Acc,F1,AUC,Typ
+S&P 500,HMM (bästa),0.79,0.827,–,Statistisk
+S&P 500,Random Forest,0.88,0.863,0.771,Bagging
+S&P 500,XGBoost ★,0.916,0.908,0.753,Boosting
+S&P 500,LSTM,0.786,0.739,0.842,Deep Learning
+Bitcoin,HMM (bästa),0.775,0.79,–,Statistisk
+Bitcoin,Random Forest,0.914,0.912,0.942,Bagging
+Bitcoin,XGBoost,0.921,0.918,0.939,Boosting
+Bitcoin,LSTM ★,0.955,0.951,0.933,Deep Learning
+Guld,HMM (bästa),0.719,0.774,–,Statistisk
+Guld,Random Forest,0.857,0.79,0.667,Bagging
+Guld,XGBoost,0.857,0.79,0.701,Boosting
+Guld,LSTM,0.857,0.79,0.850,Deep Learning
