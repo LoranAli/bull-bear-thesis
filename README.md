@@ -1,8 +1,7 @@
-# Bull & Bear Market Detection Using Statistical Models and Machine Learning
+# Bull & Bear Market Detection Using Hidden Markov Models
 
-**Bachelor's Thesis – Statistics Program, Data Analysis & Business Intelligence**  
-**Örebro University, 2026**  
-**Authors: Viktor Emilsson & Loran Ali**
+**Bachelor's Thesis – Statistics Program, Data Analysis & Business Intelligence**
+**Örebro University, 2026**
 
 ---
 
@@ -23,174 +22,139 @@
 
 ## Project Overview
 
-This project investigates the ability of statistical models and machine learning algorithms to automatically detect **bull and bear market regimes** across three distinct asset classes: **S&P 500**, **Bitcoin**, and **Gold**. The study combines classical statistical time series methods with modern supervised machine learning and deep learning in a multi-layered comparative framework.
+This thesis investigates how well **Hidden Markov Models (HMMs)** can automatically detect **bull and bear market regimes** in the **S&P 500** index. The study evaluates HMM as an unsupervised statistical approach for regime detection and compares four model configurations to identify which combination of features and state space best captures market dynamics.
 
-Bull and bear markets represent structurally different economic environments — detecting them accurately has significant implications for investment strategy, risk management, and portfolio allocation. Rather than relying on manual observation or lagging indicators, this study explores whether data-driven models can reliably identify these regimes.
+Bull and bear markets represent structurally different economic environments — detecting them accurately has implications for investment strategy, risk management, and portfolio allocation. Rather than relying on manual observation or lagging rule-based indicators, this study explores whether a probabilistic latent-variable model can reliably identify these regimes in real time.
 
-The analysis spans approximately **12 years of daily price data (2014–2025)**, sourced from Yahoo Finance, and evaluates five distinct modeling approaches ranging from unsupervised statistical models to deep learning architectures.
+The analysis spans approximately **26 years of daily price data (2000–2025)**, sourced from Yahoo Finance.
 
 ---
 
 ## Research Questions
 
 ### Main Question
-> *"Hur väl kan statistiska modeller och maskininlärning identifiera bull- och bear-marknader i S&P 500, Bitcoin och Guld?"*
-> 
-> *(How well can statistical models and machine learning identify bull and bear markets in S&P 500, Bitcoin, and Gold?)*
+
+> *Hur väl kan Hidden Markov Models identifiera bull- och bear-marknader i S&P 500?*
+>
+> *(How well can Hidden Markov Models identify bull and bear markets in the S&P 500?)*
 
 ### Sub-Questions
 
 | # | Research Question | Focus |
 |---|-------------------|-------|
-| **RQ1** | How well does the Hidden Markov Model (HMM) identify bull/bear regimes compared to the 20% rule baseline? | Statistical vs. rule-based |
-| **RQ2** | Does boosting (XGBoost) outperform bagging (Random Forest) for market regime classification? | Bagging vs. boosting |
-| **RQ3** | Does the best-performing model trained on S&P 500 generalize to Bitcoin and Gold? | Cross-asset generalization |
+| **RQ1** | How does the number of states (2 vs 3) affect HMM performance? | Model complexity |
+| **RQ2** | Do engineered features (volatility, volume) improve HMM regime detection over raw returns alone? | Feature engineering |
 
 ---
 
 ## Dataset
 
-### Sources & Assets
+### Source
 
 | Asset | Ticker | Source | Period | Trading Days |
 |-------|--------|--------|--------|--------------|
-| S&P 500 | `^GSPC` | Yahoo Finance | 2014–2025 | ~2,764 |
-| Bitcoin | `BTC-USD` | Yahoo Finance | 2014–2025 | ~4,124 |
-| Gold | `GC=F` | Yahoo Finance | 2014–2025 | ~2,764 |
+| S&P 500 | `^GSPC` | Yahoo Finance | 2000-03-29 → 2025-12-31 | 6,479 |
 
 ### Bull/Bear Labeling (Ground Truth)
 
-The 20% rule with asset-specific thresholds and minimum duration requirements is used to generate ground truth labels:
+Ground truth labels are generated using the **Lunde-Timmermann (2004) algorithm** — a rule-based, non-parametric approach that identifies local peaks and troughs:
 
-| Asset | Bear Threshold | Bull Threshold | Min. Duration |
-|-------|---------------|---------------|---------------|
-| S&P 500 | -20% from peak | +20% from trough | 60 days |
-| Bitcoin | -60% from peak | +60% from trough | 90 days |
-| Gold | -20% from peak | +20% from trough | 60 days |
+| Threshold | Value |
+|-----------|-------|
+| Bear (drop from peak) | −10% |
+| Bull (rise from trough) | +15% |
 
-Bitcoin uses a higher threshold because 20% swings are common noise in cryptocurrency markets — historical bear markets have seen drawdowns of 70–86%.
+**Regime distribution:**
 
-**Regime distribution after labeling:**
+| Class | Days | Percentage |
+|-------|------|------------|
+| Bull | 4,770 | 73.6% |
+| Bear | 1,709 | 26.4% |
 
-| Asset | Bull Days | Bear Days | Bull % |
-|-------|-----------|-----------|--------|
-| S&P 500 | 2,475 | 289 | 89.5% |
-| Bitcoin | 2,085 | 580 | 78.2% |
-| Gold | 2,489 | 275 | 90.1% |
+Empirical mean daily return per regime:
+- Bull-days: **+0.056%**
+- Bear-days: **−0.040%**
 
 ---
 
 ## Methodology
 
-### Feature Engineering
+### Features
 
-A total of **30 features per asset** were engineered across five categories:
+Two feature sets are evaluated:
 
-| Category | Features | Count |
-|----------|----------|-------|
-| **Trend** | Price/MA20, Price/MA50, Price/MA200, Golden Cross, 52-week position | 5 |
-| **Momentum** | RSI14, RSI7, MACD, MACD Signal, MACD Hist, Return lags (1/2/3/5/10d), Cumulative returns (5/10/20d) | 13 |
-| **Volatility** | Vol 10/20/60d, Bollinger Band width & position, ATR14%, Volatility ratio | 7 |
-| **Volume** | Relative volume, OBV MA20 | 2 |
-| **Cross-asset Correlation** | Rolling 60d correlation: S&P500↔BTC, S&P500↔Gold, BTC↔Gold | 3 |
+| Set | Features | Count |
+|-----|----------|-------|
+| **RAW** | `Return` | 1 |
+| **ENG** | `Return`, `Volatility_60`, `Volume_ratio` | 3 |
 
-The cross-asset correlation features are a **unique contribution** of this study — motivated by the finding that all pairwise correlations increase significantly during bear markets (correlation breakdown phenomenon):
+- **Volatility_60** — 60-day rolling standard deviation of daily returns
+- **Volume_ratio** — daily volume relative to its 50-day moving average
 
-| Pair | Full Period | Bull Market | Bear Market |
-|------|------------|-------------|-------------|
-| S&P 500 vs Bitcoin | 0.23 | 0.16 | **0.53** |
-| S&P 500 vs Gold | 0.03 | -0.05 | **0.30** |
-| Bitcoin vs Gold | 0.09 | 0.05 | **0.29** |
+All features are standardized with `StandardScaler` before HMM training.
 
-### Models
+### HMM Configurations
 
-#### 1. Hidden Markov Model (HMM)
-- **Type:** Unsupervised statistical model
-- **Library:** `hmmlearn`
-- **Input features:** Daily return, 20-day volatility, Price/MA200 ratio
-- **Variants:** 2-state (bull/bear) and 3-state (bull/neutral/bear)
-- **Key aspect:** No labels used during training — purely data-driven regime discovery
+Four Gaussian HMM models are trained:
 
-#### 2. Random Forest (Bagging)
-- **Type:** Supervised ensemble, bagging
-- **Library:** `scikit-learn`
-- **Parameters:** n_estimators=200, max_depth=6, class_weight='balanced'
-- **n_estimators** justified via OOB (Out-of-Bag) analysis showing convergence at 200 trees
+| Version | Features | States |
+|---------|----------|--------|
+| RAW-2 | Return | 2 |
+| RAW-3 | Return | 3 |
+| ENG-2 | Return, Volatility_60, Volume_ratio | 2 |
+| ENG-3 | Return, Volatility_60, Volume_ratio | 3 |
 
-#### 3. XGBoost (Boosting)
-- **Type:** Supervised ensemble, boosting
-- **Library:** `xgboost`
-- **Parameters:** n_estimators=200, max_depth=4, learning_rate=0.05, scale_pos_weight adjusted per asset
-- **Key advantage:** Sequential learning from misclassified examples
+Training uses the **Baum-Welch algorithm** (EM variant) via `hmmlearn`.
 
-#### 4. LSTM (Long Short-Term Memory)
-- **Type:** Deep learning, recurrent neural network
-- **Library:** `TensorFlow / Keras`
-- **Architecture:** LSTM(64) → Dropout(0.3) → LSTM(32) → Dropout(0.3) → Dense(16) → Dense(1, sigmoid)
-- **Sequence length:** 60 trading days
-- **Training:** EarlyStopping (patience=15), ReduceLROnPlateau, class_weight balancing
+### Inference — Filtering (no look-ahead bias)
 
-### Train/Test Split
+We use the **forward algorithm** for filtered state inference:
 
-All supervised models use a **temporal 70/30 split** to prevent data leakage:
+```
+P(s_t | y_1:t) = α_t / Σ_j α_t(j)
+```
 
-| Asset | Training Period | Test Period |
-|-------|----------------|-------------|
-| S&P 500 | 2014–2022 | Sep 2022–Dec 2025 |
-| Bitcoin | 2015–2022 | Oct 2022–Dec 2025 |
-| Gold | 2014–2022 | Sep 2022–Dec 2025 |
+This uses only historical data up to time t — unlike Viterbi/smoothing which uses the entire sequence. Filtering reflects realistic real-time deployment of the regime detector.
+
+### Online Persistence Filter
+
+To reduce noise from daily probability fluctuations, an **online persistence filter** is applied: a regime change is only confirmed if the new state has been the argmax for at least 30 consecutive days. This is still online (no look-ahead).
+
+### State Mapping — Rank-based
+
+States are mapped to regime labels by rank of estimated mean return:
+
+| Model | Mapping |
+|---|---|
+| 2-state | Lowest μ → Bear, Highest μ → Bull |
+| 3-state | Lowest μ → Bear, Middle μ → Neutral, Highest μ → Bull |
+
+For 3-state models, **Neutral is kept as its own category** (not force-mapped to Bull) and excluded from accuracy/F1 evaluation. Coverage is reported separately.
+
+### Evaluation
+
+- **Coverage** — share of days with definitive classification (Bull or Bear)
+- **Accuracy, F1, Bear Recall** — computed on days with classification
+- **Log-likelihood, AIC, BIC** — objective unsupervised model comparison
 
 ---
 
 ## Project Structure
 
 ```
-bull_bear_thesis/
-│
+bull-bear-thesis/
+├── data/                              # Raw and processed data
+│   ├── sp500.csv                      # Raw OHLCV from Yahoo Finance
+│   ├── sp500_labeled.csv              # With LT bull/bear labels
+│   ├── sp500_features.csv             # With engineered features
+│   └── sp500_hmm_v2.csv               # With HMM predictions
 ├── notebooks/
-│   ├── 01_data_collection.ipynb        # Download OHLCV data from Yahoo Finance
-│   ├── 02_labeling.ipynb               # Apply 20% rule to generate bull/bear labels
-│   ├── 03_feature_engineering.ipynb    # Compute 30 features per asset
-│   ├── 04_hmm.ipynb                    # Hidden Markov Model (2 and 3 states)
-│   ├── 05_random_forest_xgboost.ipynb  # RF vs XGBoost + OOB analysis + generalization
-│   ├── 06_lstm.ipynb                   # LSTM deep learning model
-│   └── 07_results.ipynb               # Full comparison + RQ answers
-│
-├── data/
-│   ├── sp500.csv                       # Raw price data
-│   ├── bitcoin.csv
-│   ├── gold.csv
-│   ├── sp500_labeled.csv               # With bull/bear regime labels
-│   ├── bitcoin_labeled.csv
-│   ├── gold_labeled.csv
-│   ├── sp500_features.csv              # With 30 engineered features
-│   ├── bitcoin_features.csv
-│   ├── gold_features.csv
-│   ├── sp500_hmm.csv                   # With HMM predictions
-│   ├── bitcoin_hmm.csv
-│   ├── gold_hmm.csv
-│   ├── sp500_ml.csv                    # With RF/XGBoost predictions
-│   ├── bitcoin_ml.csv
-│   ├── gold_ml.csv
-│   ├── sp500_lstm.csv                  # With LSTM predictions
-│   ├── bitcoin_lstm.csv
-│   ├── gold_lstm.csv
-│   └── combined_features.csv
-│
-├── results/
-│   ├── 03_correlations.png
-│   ├── 03_correlation_heatmap.png
-│   ├── 04_hmm_best.png
-│   ├── 04_hmm_transitions.png
-│   ├── 05_oob_analysis.png
-│   ├── 05_feature_importance.png
-│   ├── 05_predictions.png
-│   ├── 06_lstm_history.png
-│   ├── 06_lstm_predictions.png
-│   ├── 07_accuracy_comparison.png
-│   ├── 07_f1_auc_heatmap.png
-│   └── 07_summary_table.csv
-│
+│   ├── 01_data_collection.ipynb       # Yahoo Finance data download
+│   ├── 02_labeling.ipynb              # Lunde-Timmermann labeling
+│   ├── 03_feature_engineering.ipynb   # Volatility, volume, returns
+│   ├── 04_hmm_filtered.ipynb          # HMM training, filtering, evaluation
+│   └── 05_results.ipynb               # Final results & comparison
+├── results/                           # Plots and summary tables
 └── README.md
 ```
 
@@ -198,131 +162,94 @@ bull_bear_thesis/
 
 ## Installation & Setup
 
-### Prerequisites
-
-- Python 3.11
-- Conda (recommended)
-
-### Environment Setup
+### Requirements
 
 ```bash
-# Create conda environment
-conda create -n thesis python=3.11
-conda activate thesis
-
-# Install dependencies
-pip install pandas numpy matplotlib seaborn scikit-learn
-pip install yfinance xgboost hmmlearn tensorflow
-pip install jupyterlab ipykernel
-
-# Register kernel
-python -m ipykernel install --user --name thesis --display-name "Thesis (Python 3.11)"
+pip install pandas numpy matplotlib seaborn scikit-learn hmmlearn scipy yfinance jupyter
 ```
 
-### Running the Notebooks
+### Run Order
 
-Run notebooks in order:
+Notebooks should be executed in numerical order:
 
 ```bash
-jupyter lab
+jupyter notebook notebooks/01_data_collection.ipynb
+jupyter notebook notebooks/02_labeling.ipynb
+jupyter notebook notebooks/03_feature_engineering.ipynb
+jupyter notebook notebooks/04_hmm_filtered.ipynb
+jupyter notebook notebooks/05_results.ipynb
 ```
 
-1. `01_data_collection.ipynb` — downloads and saves raw data
-2. `02_labeling.ipynb` — generates bull/bear labels
-3. `03_feature_engineering.ipynb` — computes all features
-4. `04_hmm.ipynb` — trains and evaluates HMM
-5. `05_random_forest_xgboost.ipynb` — trains RF and XGBoost
-6. `06_lstm.ipynb` — trains LSTM
-7. `07_results.ipynb` — aggregates and compares all results
+Each notebook reads its input from `data/` and writes its output to `data/` and `results/`.
 
 ---
 
 ## Results
 
-### Full Performance Summary
+### Main Performance Table
 
-| Asset | Model | Accuracy | F1-score | ROC-AUC | Type |
-|-------|-------|----------|----------|---------|------|
-| **S&P 500** | HMM (best) | 0.790 | 0.827 | – | Statistical |
-| **S&P 500** | Random Forest | 0.880 | 0.863 | 0.771 | Bagging |
-| **S&P 500** | XGBoost ★ | **0.916** | **0.908** | 0.753 | Boosting |
-| **S&P 500** | LSTM | 0.786 | 0.739 | 0.842 | Deep Learning |
-| **Bitcoin** | HMM (best) | 0.775 | 0.790 | – | Statistical |
-| **Bitcoin** | Random Forest | 0.914 | 0.912 | 0.942 | Bagging |
-| **Bitcoin** | XGBoost | 0.921 | 0.918 | 0.939 | Boosting |
-| **Bitcoin** | LSTM ★ | **0.955** | **0.951** | 0.933 | Deep Learning |
-| **Gold** | HMM (best) | 0.719 | 0.774 | – | Statistical |
-| **Gold** | Random Forest | 0.857 | 0.790 | 0.667 | Bagging |
-| **Gold** | XGBoost | 0.857 | 0.790 | 0.701 | Boosting |
-| **Gold** | LSTM | 0.857 | 0.790 | 0.850 | Deep Learning |
+| Model | Coverage | Accuracy | F1 | Bear Recall |
+|-------|----------|----------|-----|-------------|
+| HMM RAW-2 | 100.0% | 0.780 | 0.782 | 0.616 |
+| HMM RAW-3 | 54.7% | 0.889 | 0.884 | 0.585 |
+| HMM ENG-2 | 100.0% | 0.783 | 0.793 | **0.819** |
+| HMM ENG-3 | 46.3% | 0.501 | 0.474 | 0.723 |
 
-### Overall Model Ranking (Average F1 across all assets)
+### Information Criteria
 
-| Rank | Model | Average F1 |
-|------|-------|-----------|
-| 1 | XGBoost | 0.872 |
-| 2 | Random Forest | 0.855 |
-| 3 | LSTM | 0.827 |
-| 4 | HMM (3-state) | 0.807 |
-| 5 | HMM (2-state) | 0.579 |
+| Model | log L | AIC | BIC |
+|-------|-------|-----|-----|
+| HMM RAW-2 | −7,849.2 | 15,712.3 | 15,759.8 |
+| HMM RAW-3 | −7,556.8 | **15,141.6** | **15,236.4** |
+| HMM ENG-2 | −13,228.5 | 26,482.9 | 26,571.0 |
+| HMM ENG-3 | −10,824.2 | 21,694.4 | 21,850.3 |
 
-### Cross-Asset Generalization (Trained on S&P 500)
+### Best Model — Two Perspectives
 
-| Target Asset | Model | Asset-Specific Acc | Generalized Acc | Change |
-|---|---|---|---|---|
-| Bitcoin | Random Forest | 0.914 | 0.882 | -0.032 |
-| Bitcoin | XGBoost | 0.921 | 0.906 | -0.015 |
-| Gold | Random Forest | 0.857 | 0.858 | +0.001 |
-| **Gold** | **XGBoost** | 0.857 | **0.941** | **+0.084** |
+| Perspective | Winner | Reason |
+|---|---|---|
+| **Practical** (matching LT labels) | ENG-2 | Highest F1 × Coverage = 0.793; highest Bear Recall (0.819) |
+| **Statistical** (explaining observed data) | RAW-3 | Lowest AIC and BIC — most parsimonious model fit |
 
 ---
 
 ## Key Findings
 
-### RQ1 — HMM vs. 20% Rule
-HMM achieves reasonable performance for S&P 500 (Acc: 0.790) without seeing any labels during training. However, the **3-state model significantly outperforms the 2-state model** for Bitcoin (+45.7% accuracy) and Gold (+24.5%), revealing that a neutral/sideways accumulation state is genuinely informative — particularly for Bitcoin's halving cycles. All supervised ML models outperform HMM consistently.
+1. **HMM successfully identifies bull/bear regimes without ground truth labels** — the model finds economically meaningful regimes using only price data.
 
-### RQ2 — Bagging vs. Boosting
-**XGBoost (boosting) outperforms Random Forest (bagging)** for S&P 500 (+3.6%) and Bitcoin (+0.7%). Gold is a draw — both models fail to detect bear markets due to the lateral price movement characteristic of gold's bear periods. Across assets, XGBoost ranks first by average F1 (0.872 vs. 0.855).
+2. **Engineered features improve Bear Recall significantly** — ENG-2 achieves 0.819 Bear Recall versus 0.616 for RAW-2, demonstrating that volatility and volume help the model identify downturns.
 
-### RQ3 — Cross-Asset Generalization
-Results are mixed but revealing. XGBoost trained on S&P 500 **generalizes unexpectedly well to Gold** (Acc: 0.941 vs. 0.857 asset-specific) — suggesting that macroeconomic patterns driving S&P 500 regimes transfer to gold. Bitcoin, however, performs better with asset-specific training (0.921 vs. 0.906 generalized), reflecting its unique halving-driven cycles.
+3. **Leverage effect confirmed** — the bear regime in HMM RAW-2 has approximately **2.8× higher volatility** than the bull regime, matching the well-documented finance phenomenon (Black, 1976).
 
-### The Gold Challenge
-Gold's bear market in 2022–2023 was characterized by **lateral/sideways price movement** rather than a sharp decline. Technical indicators (RSI, MACD, volatility) do not signal bear conditions during sideways markets, causing all models to fail on this specific bear period. This challenges the 20% rule as a ground truth definition for gold and highlights the need for asset-specific regime definitions.
+4. **Statistical vs supervised divergence** — RAW-3 wins on AIC/BIC (statistically optimal) but ENG-2 wins on F1 × Coverage (best match to LT labels). This is a classic unsupervised-vs-supervised tension.
 
-### Correlation Breakdown
-A notable cross-asset finding: all pairwise correlations **increase sharply during bear markets** (e.g., S&P 500 vs. Bitcoin: 0.16 in bull → 0.53 in bear), consistent with the correlation breakdown phenomenon. This motivates the inclusion of rolling cross-asset correlations as features and supports the study's multi-asset approach.
+5. **Persistent regimes** — diagonal values of 0.96–0.99 in transition matrices confirm that markets remain in the same regime with >95% probability the next day. Bull and Bear states never transition directly to each other in 3-state models — always through Neutral.
 
 ---
 
 ## Limitations
 
-- **Ground truth dependency:** The 20% rule is an industry convention, not a mathematical truth. Alternative thresholds may yield different regime definitions and results.
-- **Look-ahead bias risk:** Feature engineering uses rolling windows anchored to past data only, but the temporal split must be strictly maintained in any future extension.
-- **Gold bear detection:** The lateral nature of gold's bear markets may require domain-specific regime definitions beyond price-based thresholds.
-- **LSTM overfitting:** Training history shows divergence between training and validation loss for S&P 500 and Gold, suggesting the LSTM architecture may benefit from further regularization or architecture search.
-- **Single test period:** The 30% test window (2022–2025) covers one major bear market and one bull market. Results may vary across different market cycles.
-- **No transaction costs:** Models are evaluated on classification accuracy only — real-world application would require accounting for trading costs and execution latency.
+- **Only S&P 500 is analyzed** — generalization to other asset classes (cryptocurrencies, commodities, emerging markets) is not evaluated.
+- **Ground truth depends on Lunde-Timmermann thresholds** — different threshold choices would yield different labels.
+- **Gaussian emission assumption** — HMM assumes returns within each regime follow a multivariate normal distribution. Real return distributions exhibit fat tails.
+- **No transaction costs or portfolio implementation** — this is a regime detection study, not a trading strategy backtest.
 
 ---
 
 ## Technologies Used
 
-| Library | Version | Purpose |
-|---------|---------|---------|
-| `pandas` | 2.x | Data manipulation |
-| `numpy` | 1.26.4 | Numerical computation |
-| `yfinance` | latest | Yahoo Finance data download |
-| `scikit-learn` | latest | Random Forest, preprocessing, metrics |
-| `xgboost` | latest | XGBoost classifier |
-| `hmmlearn` | latest | Hidden Markov Model |
-| `tensorflow` | 2.16.2 | LSTM deep learning |
-| `matplotlib` | latest | Visualization |
-| `seaborn` | latest | Statistical visualization |
+| Library | Purpose |
+|---------|---------|
+| `pandas`, `numpy` | Data manipulation |
+| `hmmlearn` | Gaussian Hidden Markov Model |
+| `scikit-learn` | StandardScaler, metrics |
+| `scipy.stats` | Multivariate normal log-pdf for forward algorithm |
+| `matplotlib`, `seaborn` | Visualization |
+| `yfinance` | Yahoo Finance data |
+| `jupyter` | Notebook environment |
 
 ---
 
 ## License
 
-This project is developed for academic purposes as part of a bachelor's thesis at Örebro University. All data is sourced from Yahoo Finance under their terms of service.
+Academic project — Örebro University, 2026.
